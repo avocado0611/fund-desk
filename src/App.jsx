@@ -110,10 +110,11 @@ function App() {
     };
   }, [cloudData, activePortfolio]);
 
-  const takeSnapshot = async (currentNav, portfolioName) => {
+  const takeSnapshot = async (currentNav, portfolioName, snapshotDate = null) => {
     if (!cloudData || portfolioName === 'All') return;
-    const today = new Date().toISOString().split('T')[0];
-    const currentIndex = await fetchHistoricalIndex('VNINDEX', today) || 1250; 
+    const finalDate = snapshotDate || new Date().toISOString();
+    const shortDate = finalDate.split('T')[0];
+    const currentIndex = await fetchHistoricalIndex('VNINDEX', shortDate) || 1250; 
     const unitsObj = cloudData.total_units || {};
     
     // Effective Initial NAV (Committed Capital)
@@ -122,7 +123,8 @@ function App() {
     const unitValue = currentUnits > 0 ? (currentNav / currentUnits) : INITIAL_UNIT_PRICE;
 
     const snapshot = {
-      date: new Date().toISOString(),
+      date: finalDate, // Now correctly using tradeDate if available
+      inputTime: new Date().toISOString(), // Still store actual entry time
       nav: currentNav,
       unitValue: unitValue,
       vnindex: currentIndex,
@@ -149,7 +151,7 @@ function App() {
       await updateCloud({ market_prices: updatedPrices });
       if (activePortfolio !== 'All') {
           const allStates = derivePortfolioState(cloudData.transactions, updatedPrices, cloudData.initial_navs);
-          takeSnapshot(allStates[activePortfolio].nav, activePortfolio);
+          takeSnapshot(allStates[activePortfolio].nav, activePortfolio); // Uses today's date for refresh
       }
     }
   };
@@ -160,7 +162,8 @@ function App() {
     // Snapshot after a small delay to ensure calc is ready
     setTimeout(() => {
         const allStates = derivePortfolioState(updatedTxs, cloudData.market_prices, cloudData.initial_navs);
-        takeSnapshot(allStates[newTx.portfolio].nav, newTx.portfolio);
+        // Pass the tradeDate from the transaction to synchronize with Ledger
+        takeSnapshot(allStates[newTx.portfolio].nav, newTx.portfolio, newTx.tradeDate);
     }, 500);
   };
 
