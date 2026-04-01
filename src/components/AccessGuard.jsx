@@ -39,7 +39,7 @@ const AccessGuard = ({ onAccess }) => {
     }}>
       <div className="card" style={{ width: '400px', textAlign: 'center', padding: '3rem', borderTop: '4px solid var(--color-primary)' }}>
         <img 
-          src="https://sgicapital.com.vn/wp-content/uploads/2021/04/logo-sgi-capital-3.png" 
+          src="/sgi-logo.png" 
           alt="SGI Capital Logo" 
           style={{ maxWidth: '200px', marginBottom: '2rem' }}
         />
