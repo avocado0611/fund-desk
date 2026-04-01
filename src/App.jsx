@@ -1,112 +1,223 @@
-import React, { useState } from 'react';
-import Navbar from './components/Navbar';
-import Feed from './components/Feed';
-import Profile from './components/Profile';
-import PostModal from './components/PostModal';
-import { samplePosts as initialPosts } from './data/samplePosts';
-import { Home, User, PlusCircle } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import Header from './components/Header';
+import NAVDashboard from './components/NAVDashboard';
+import HoldingsTable from './components/HoldingsTable';
+import TransactionLedger from './components/TransactionLedger';
+import MarketPriceManager from './components/MarketPriceManager';
+import TransactionForm from './components/TransactionForm';
+import AccessGuard from './components/AccessGuard';
+import PerformanceChart from './components/PerformanceChart';
+
+import { derivePortfolioState } from './logic/engine';
+import { syncToCloud } from './logic/supabase';
+import { fetchVnStockPrices, fetchHistoricalIndex } from './logic/vnstock';
+import { calculateNewUnits, INITIAL_UNIT_PRICE } from './logic/performance';
 
 function App() {
-  const [posts, setPosts] = useState(initialPosts);
-  const [activeView, setActiveView] = useState('home'); // 'home' or 'profile'
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [cloudData, setCloudData] = useState(null); 
+  const [activePortfolio, setActivePortfolio] = useState('All');
+  const [editingTx, setEditingTx] = useState(null);
 
-  const handleAddPost = (newPost) => {
-    const postToAdd = {
-      ...newPost,
-      id: posts.length + 1,
-      author: "Me (Builder)",
-      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Me",
-      time: "Vừa xong",
-      likes: 0,
-      comments: 0,
-      isMe: true
-    };
-    setPosts([postToAdd, ...posts]);
-    setIsModalOpen(false);
-    setActiveView('home');
+  // Sync to cloud whenever data changes
+  const updateCloud = async (updates) => {
+    if (!cloudData) return;
+    const newVersion = { ...cloudData, ...updates };
+    setCloudData(newVersion);
+    await syncToCloud(cloudData.id, updates);
   };
+
+  const handleLogout = () => {
+    if (window.confirm('Bạn có muốn đăng xuất và đổi mã truy cập?')) {
+        setCloudData(null);
+        setActivePortfolio('All');
+    }
+  };
+
+  // Compute state
+  const portfolioData = useMemo(() => {
+    if (!cloudData) return null;
+    const { transactions, market_prices, initial_navs } = cloudData;
+    const allStates = derivePortfolioState(transactions || [], market_prices || {}, initial_navs || {});
+    
+    if (activePortfolio === 'All') {
+      const combined = {
+        name: 'All Portfolios',
+        holdings: {},
+        cash: 0,
+        nav: 0,
+        equityValue: 0,
+        bondValue: 0,
+        warrantValue: 0,
+        cashAvailable: 0,
+        marginDebt: 0,
+        marginInterestAccrued: 0,
+        realizedPnL: 0,
+        weights: { equity: 0, bond: 0, cash: 0, margin: 0 }
+      };
+
+      Object.values(allStates).forEach(p => {
+        combined.cash += p.netCash || 0;
+        combined.equityValue += p.equityValue || 0;
+        combined.bondValue += p.bondValue || 0;
+        combined.warrantValue += p.warrantValue || 0;
+        combined.nav += p.nav || 0;
+        combined.marginInterestAccrued += p.marginInterestAccrued || 0;
+        combined.realizedPnL += p.realizedPnL || 0;
+
+        Object.entries(p.holdings).forEach(([ticker, h]) => {
+          if (!combined.holdings[ticker]) {
+            combined.holdings[ticker] = { ...h };
+          } else {
+            const ch = combined.holdings[ticker];
+            const newQty = ch.qty + h.qty;
+            const newTotalCost = ch.totalCost + h.totalCost;
+            ch.avgPrice = newQty > 0 ? newTotalCost / newQty : 0;
+            ch.qty = newQty;
+            ch.totalCost = newTotalCost;
+            ch.marketValue += h.marketValue;
+            ch.unrealizedPnL += h.unrealizedPnL;
+            ch.realizedPnL += h.realizedPnL;
+          }
+        });
+      });
+
+      combined.cashAvailable = combined.cash > 0 ? combined.cash : 0;
+      combined.marginDebt = combined.cash < 0 ? Math.abs(combined.cash) : 0;
+
+      combined.weights = {
+        equity: combined.nav > 0 ? (combined.equityValue / combined.nav) * 100 : 0,
+        bond: combined.nav > 0 ? (combined.bondValue / combined.nav) * 100 : 0,
+        cash: combined.nav > 0 ? (combined.cashAvailable / combined.nav) * 100 : 0,
+        margin: combined.nav > 0 ? (combined.marginDebt / combined.nav) * 100 : 0,
+      };
+
+      Object.values(combined.holdings).forEach(h => {
+        h.weight = combined.nav > 0 ? (h.marketValue / combined.nav) * 100 : 0;
+      });
+
+      return combined;
+    }
+
+    return allStates[activePortfolio] || {
+      name: activePortfolio,
+      holdings: {},
+      cashAvailable: 0,
+      nav: 0,
+      equityValue: 0
+    };
+  }, [cloudData, activePortfolio]);
+
+  const takeSnapshot = async (currentNav, portfolioName) => {
+    if (!cloudData || portfolioName === 'All') return;
+    const today = new Date().toISOString().split('T')[0];
+    const currentIndex = await fetchHistoricalIndex('VNINDEX', today) || 1250; 
+    const unitsObj = cloudData.total_units || {};
+    const currentUnits = unitsObj[portfolioName] || (cloudData.initial_navs[portfolioName] / INITIAL_UNIT_PRICE);
+    const unitValue = currentUnits > 0 ? (currentNav / currentUnits) : INITIAL_UNIT_PRICE;
+
+    const snapshot = {
+      date: new Date().toISOString(),
+      nav: currentNav,
+      unitValue: unitValue,
+      vnindex: currentIndex,
+      portfolio: portfolioName,
+      initialNav: cloudData.initial_navs[portfolioName]
+    };
+    updateCloud({ 
+        nav_history: [...(cloudData.nav_history || []), snapshot],
+        total_units: { ...unitsObj, [portfolioName]: currentUnits }
+    });
+  };
+
+  const handleRefreshPrices = async () => {
+    // Collect all tickers in current holdings + market_prices list
+    const holdingsTickers = Object.keys(portfolioData.holdings).filter(t => portfolioData.holdings[t].qty > 0);
+    const existingTickers = Object.keys(cloudData.market_prices || {});
+    const allTickers = Array.from(new Set([...holdingsTickers, ...existingTickers]));
+    
+    if (allTickers.length === 0) return;
+    const newPrices = await fetchVnStockPrices(allTickers);
+    if (Object.keys(newPrices).length > 0) {
+      const updatedPrices = { ...cloudData.market_prices, ...newPrices };
+      await updateCloud({ market_prices: updatedPrices });
+      if (activePortfolio !== 'All') {
+          const allStates = derivePortfolioState(cloudData.transactions, updatedPrices, cloudData.initial_navs);
+          takeSnapshot(allStates[activePortfolio].nav, activePortfolio);
+      }
+    }
+  };
+
+  const handleAddTransaction = (newTx) => {
+    const updatedTxs = [...(cloudData.transactions || []), newTx];
+    updateCloud({ transactions: updatedTxs });
+    // Snapshot after a small delay to ensure calc is ready
+    setTimeout(() => {
+        const allStates = derivePortfolioState(updatedTxs, cloudData.market_prices, cloudData.initial_navs);
+        takeSnapshot(allStates[newTx.portfolio].nav, newTx.portfolio);
+    }, 500);
+  };
+
+  if (!cloudData) return <AccessGuard onAccess={(data) => setCloudData(data)} />;
+
+  const portfolios = ['All', 'Tự doanh', 'QTN', 'QNV'];
 
   return (
     <div className="App">
-      <Navbar onAddClick={() => setIsModalOpen(true)} />
+      <Header onLogout={handleLogout} />
       
-      {activeView === 'home' ? (
-        <Feed posts={posts} />
-      ) : (
-        <Profile posts={posts.filter(p => p.isMe)} />
-      )}
-
-      {isModalOpen && (
-        <PostModal 
-          onClose={() => setIsModalOpen(false)} 
-          onSubmit={handleAddPost} 
-        />
-      )}
-      
-      {/* Bottom Nav */}
-      <div className="bottom-nav glass">
-        <div className="nav-items">
-          <button 
-            className={`nav-item ${activeView === 'home' ? 'active' : ''}`}
-            onClick={() => setActiveView('home')}
-          >
-            <Home size={24} />
-            <span>Trang chủ</span>
-          </button>
-          <button 
-            className="nav-item plus-item"
-            onClick={() => setIsModalOpen(true)}
-          >
-            <PlusCircle size={32} color="#FF6B6B" />
-          </button>
-          <button 
-            className={`nav-item ${activeView === 'profile' ? 'active' : ''}`}
-            onClick={() => setActiveView('profile')}
-          >
-            <User size={24} />
-            <span>Cá nhân</span>
-          </button>
+      <main className="container">
+        <div className="btn-toggle-group" style={{ marginBottom: '1.5rem' }}>
+          {portfolios.map(p => (
+            <button key={p} className={`btn-toggle ${activePortfolio === p ? 'active' : ''}`} onClick={() => setActivePortfolio(p)}>
+              {p.toUpperCase()}
+            </button>
+          ))}
         </div>
-      </div>
 
-      <style jsx>{`
-        .bottom-nav {
-          position: fixed;
-          bottom: 0;
-          left: 0;
-          right: 0;
-          height: 70px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-top: 1px solid var(--border);
-          padding-bottom: env(safe-area-inset-bottom);
-          z-index: 1000;
-        }
-        .nav-items {
-          display: flex;
-          justify-content: space-around;
-          align-items: center;
-          width: 100%;
-          max-width: 500px;
-        }
-        .nav-item {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 4px;
-          color: var(--text-muted);
-          font-size: 0.75rem;
-          font-weight: 500;
-        }
-        .nav-item.active {
-          color: var(--primary);
-        }
-        .plus-item {
-          transform: translateY(-5px);
-        }
-      `}</style>
+        {/* 1. Transaction Form */}
+        <TransactionForm 
+            onAdd={handleAddTransaction} 
+            onUpdate={(tx) => updateCloud({ transactions: cloudData.transactions.map(t => t.id === tx.id ? tx : t) })}
+            editingTx={editingTx}
+            onCancelEdit={() => setEditingTx(null)}
+        />
+
+        {/* 2. Position Holdings (Open) */}
+        <HoldingsTable holdings={portfolioData.holdings} />
+
+        {/* 3. NAV Summary (Dashboard) */}
+        <NAVDashboard 
+            data={portfolioData} 
+            onRefresh={handleRefreshPrices} 
+            initialNav={activePortfolio === 'All' ? 0 : (cloudData.initial_navs[activePortfolio] || 0)}
+            onInitialNavChange={(newVal) => {
+              const oldVal = cloudData.initial_navs[activePortfolio] || 0;
+              const unitsObj = cloudData.total_units || {};
+              const currentUnits = unitsObj[activePortfolio] || (oldVal / INITIAL_UNIT_PRICE);
+              const { totalUnits } = calculateNewUnits(portfolioData.nav, currentUnits, portfolioData.nav, newVal, oldVal);
+              updateCloud({ initial_navs: { ...cloudData.initial_navs, [activePortfolio]: newVal }, total_units: { ...unitsObj, [activePortfolio]: totalUnits } });
+            }}
+            showInitialNav={activePortfolio !== 'All'}
+        />
+
+        {/* 4. Transaction Ledger */}
+        <TransactionLedger 
+          transactions={activePortfolio === 'All' ? cloudData.transactions : cloudData.transactions.filter(t => t.portfolio === activePortfolio)} 
+          onDelete={(id) => updateCloud({ transactions: cloudData.transactions.filter(t => t.id !== id) })}
+          onEdit={(tx) => { setEditingTx(tx); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+        />
+
+        {/* 5. Market Price Manager */}
+        <MarketPriceManager prices={cloudData.market_prices || {}} onChange={(p) => updateCloud({ market_prices: p })} />
+
+        {/* 6. Performance Analytics */}
+        {activePortfolio !== 'All' && (
+            <PerformanceChart 
+                history={cloudData.nav_history || []} 
+                activePortfolio={activePortfolio} 
+            />
+        )}
+      </main>
     </div>
   );
 }
