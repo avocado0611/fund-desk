@@ -29,39 +29,39 @@ const NAVDashboard = ({ data, onRefresh, initialNav, onInitialNavChange, showIni
           <table className="nav-table" style={{ borderCollapse: 'collapse', width: '100%' }}>
             <tbody>
               <tr>
-                <td style={{ padding: '0.8rem 0', color: '#666', textTransform: 'lowercase' }}>equity value</td>
+                <td style={{ padding: '0.8rem 0', color: '#666' }}>Equity Value</td>
                 <td style={{ padding: '0.8rem 0', textAlign: 'right', fontWeight: '500' }}>{formatNum(data.equityValue)}</td>
                 <td style={{ padding: '0.8rem 0', textAlign: 'right', fontWeight: 'bold', color: '#000' }}>{formatPercent(data.weights?.equity || 0)}</td>
               </tr>
               <tr>
-                <td style={{ padding: '0.8rem 0', color: '#666', textTransform: 'lowercase' }}>bond (coupon bond)</td>
+                <td style={{ padding: '0.8rem 0', color: '#666' }}>Bond (Coupon Bond)</td>
                 <td style={{ padding: '0.8rem 0', textAlign: 'right', fontWeight: '500' }}>{formatNum(data.bondValue || 0)}</td>
                 <td style={{ padding: '0.8rem 0', textAlign: 'right', fontWeight: 'bold', color: '#000' }}>{formatPercent(data.weights?.bond || 0)}</td>
               </tr>
               <tr>
-                <td style={{ padding: '0.8rem 0', color: '#666', textTransform: 'lowercase' }}>cash available</td>
+                <td style={{ padding: '0.8rem 0', color: '#666' }}>Cash Available</td>
                 <td style={{ padding: '0.8rem 0', textAlign: 'right', fontWeight: '500', color: 'var(--color-green)' }}>{formatNum(data.cashAvailable)}</td>
                 <td style={{ padding: '0.8rem 0', textAlign: 'right', fontWeight: 'bold', color: '#000' }}>{formatPercent(data.weights?.cash || 0)}</td>
               </tr>
               <tr>
-                <td style={{ padding: '0.8rem 0', color: '#666', textTransform: 'lowercase' }}>margin debt</td>
+                <td style={{ padding: '0.8rem 0', color: '#666' }}>Margin Debt</td>
                 <td style={{ padding: '0.8rem 0', textAlign: 'right', fontWeight: '500', color: 'var(--color-red)' }}>{formatNum(data.marginDebt)}</td>
                 <td style={{ padding: '0.8rem 0', textAlign: 'right', fontWeight: 'bold', color: '#000' }}>{formatPercent(data.weights?.margin || 0)}</td>
               </tr>
               <tr style={{ borderTop: '1px solid #eee' }}>
-                <td style={{ padding: '0.8rem 0', color: '#999', fontSize: '0.85rem', textTransform: 'lowercase' }}>margin interest (9%/y)</td>
+                <td style={{ padding: '0.8rem 0', color: '#999', fontSize: '0.85rem' }}>Margin Interest (9%/Y)</td>
                 <td style={{ padding: '0.8rem 0', textAlign: 'right', color: 'var(--color-red)', fontSize: '0.85rem' }}>-{formatNum(data.marginInterestAccrued || 0)}</td>
                 <td></td>
               </tr>
               <tr>
-                <td style={{ padding: '0.8rem 0', color: '#999', fontSize: '0.85rem', textTransform: 'lowercase' }}>realized p&l</td>
+                <td style={{ padding: '0.8rem 0', color: '#999', fontSize: '0.85rem' }}>Realized P&L</td>
                 <td style={{ padding: '0.8rem 0', textAlign: 'right', color: data.realizedPnL >= 0 ? 'var(--color-green)' : 'var(--color-red)', fontSize: '0.85rem' }}>{formatNum(data.realizedPnL)}</td>
                 <td></td>
               </tr>
               
               {showInitialNav && (
                 <tr style={{ background: '#fcfcfc' }}>
-                  <td style={{ padding: '1rem 0', color: '#888', fontStyle: 'italic', textTransform: 'lowercase' }}>initial nav (capital)</td>
+                  <td style={{ padding: '1rem 0', color: '#888', fontStyle: 'italic' }}>Initial NAV (Capital)</td>
                   <td style={{ padding: '1rem 0', textAlign: 'right' }}>
                     <input 
                       type="text" 
@@ -71,7 +71,7 @@ const NAVDashboard = ({ data, onRefresh, initialNav, onInitialNavChange, showIni
                         const val = parseFloat(e.target.value.replace(/,/g, ''));
                         if (!isNaN(val)) onInitialNavChange(val);
                       }}
-                      style={{ fontSize: '0.9rem', fontWeight: 'bold', textAlign: 'right', width: '150px' }}
+                      style={{ fontSize: '1rem', fontWeight: 'bold', textAlign: 'right', width: '150px' }}
                     />
                   </td>
                   <td></td>
@@ -79,8 +79,8 @@ const NAVDashboard = ({ data, onRefresh, initialNav, onInitialNavChange, showIni
               )}
 
               <tr style={{ borderTop: '2px solid var(--color-primary)' }}>
-                <td style={{ padding: '1.5rem 0', color: 'var(--color-primary)', fontWeight: 'bold', fontSize: '1.1rem', textTransform: 'lowercase' }}>current nav</td>
-                <td style={{ padding: '1.5rem 0', textAlign: 'right', fontWeight: 'bold', fontSize: '1.8rem', color: 'var(--color-primary)' }}>
+                <td style={{ padding: '1.5rem 0', color: 'var(--color-primary)', fontWeight: 'bold', fontSize: '1.4rem' }}>Current NAV</td>
+                <td style={{ padding: '1.5rem 0', textAlign: 'right', fontWeight: 'bold', fontSize: '2.2rem', color: 'var(--color-primary)' }}>
                     {formatNum(data.nav)}
                 </td>
                 <td></td>

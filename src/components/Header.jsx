@@ -9,13 +9,12 @@ const Header = ({ onLogout }) => {
         color: 'var(--color-primary)' 
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-        <img src="/sgi-logo.png" alt="SGI Logo" style={{ height: '40px' }} />
-        <div style={{ width: '1px', height: '24px', background: '#ddd', margin: '0 0.5rem' }}></div>
-        <span style={{ fontWeight: 'bold', fontSize: '1.4rem', letterSpacing: '2px', color: '#1D4477' }}>FUND-DESK</span>
+        <img src="/sgi-logo.png" alt="SGI Logo" style={{ height: '55px' }} />
+        <div style={{ width: '1px', height: '32px', background: '#ddd', margin: '0 0.5rem' }}></div>
+        <span style={{ fontWeight: 'bold', fontSize: '1.6rem', letterSpacing: '2px', color: '#1D4477' }}>FUND-DESK</span>
       </div>
       
       <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
-        <img src="/sgi-logo.png" alt="SGI Branding" style={{ height: '28px', opacity: 0.6 }} />
         {onLogout && (
             <button 
                 onClick={onLogout}
