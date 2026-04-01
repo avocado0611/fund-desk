@@ -52,6 +52,7 @@ function App() {
         marginDebt: 0,
         marginInterestAccrued: 0,
         realizedPnL: 0,
+        totalInvested: 0,
         weights: { equity: 0, bond: 0, cash: 0, margin: 0 }
       };
 
@@ -61,6 +62,7 @@ function App() {
         combined.bondValue += p.bondValue || 0;
         combined.warrantValue += p.warrantValue || 0;
         combined.nav += p.nav || 0;
+        combined.totalInvested += p.totalInvested || 0;
         combined.marginInterestAccrued += p.marginInterestAccrued || 0;
         combined.realizedPnL += p.realizedPnL || 0;
 
@@ -103,7 +105,7 @@ function App() {
       holdings: {},
       cashAvailable: 0,
       nav: 0,
-      equityValue: 0
+      totalInvested: initial_navs[activePortfolio] || 0
     };
   }, [cloudData, activePortfolio]);
 
@@ -112,7 +114,10 @@ function App() {
     const today = new Date().toISOString().split('T')[0];
     const currentIndex = await fetchHistoricalIndex('VNINDEX', today) || 1250; 
     const unitsObj = cloudData.total_units || {};
-    const currentUnits = unitsObj[portfolioName] || (cloudData.initial_navs[portfolioName] / INITIAL_UNIT_PRICE);
+    
+    // Effective Initial NAV (Committed Capital)
+    const effectiveInitial = portfolioData.totalInvested;
+    const currentUnits = unitsObj[portfolioName] || (effectiveInitial / INITIAL_UNIT_PRICE);
     const unitValue = currentUnits > 0 ? (currentNav / currentUnits) : INITIAL_UNIT_PRICE;
 
     const snapshot = {
@@ -121,8 +126,10 @@ function App() {
       unitValue: unitValue,
       vnindex: currentIndex,
       portfolio: portfolioName,
-      initialNav: cloudData.initial_navs[portfolioName]
+      initialNav: effectiveInitial,
+      totalInvested: effectiveInitial
     };
+    
     updateCloud({ 
         nav_history: [...(cloudData.nav_history || []), snapshot],
         total_units: { ...unitsObj, [portfolioName]: currentUnits }
@@ -130,7 +137,6 @@ function App() {
   };
 
   const handleRefreshPrices = async () => {
-    // Collect all tickers in current holdings + market_prices list
     const holdingsTickers = Object.keys(portfolioData.holdings).filter(t => portfolioData.holdings[t].qty > 0);
     const existingTickers = Object.keys(cloudData.market_prices || {});
     const allTickers = Array.from(new Set([...holdingsTickers, ...existingTickers]));
@@ -174,7 +180,6 @@ function App() {
           ))}
         </div>
 
-        {/* 1. Transaction Form */}
         <TransactionForm 
             onAdd={handleAddTransaction} 
             onUpdate={(tx) => updateCloud({ transactions: cloudData.transactions.map(t => t.id === tx.id ? tx : t) })}
@@ -182,14 +187,12 @@ function App() {
             onCancelEdit={() => setEditingTx(null)}
         />
 
-        {/* 2. Position Holdings (Open) */}
         <HoldingsTable holdings={portfolioData.holdings} />
 
-        {/* 3. NAV Summary (Dashboard) */}
         <NAVDashboard 
             data={portfolioData} 
             onRefresh={handleRefreshPrices} 
-            initialNav={activePortfolio === 'All' ? 0 : (cloudData.initial_navs[activePortfolio] || 0)}
+            initialNav={activePortfolio === 'All' ? 0 : (portfolioData.totalInvested || 0)}
             onInitialNavChange={(newVal) => {
               const oldVal = cloudData.initial_navs[activePortfolio] || 0;
               const unitsObj = cloudData.total_units || {};
@@ -200,17 +203,14 @@ function App() {
             showInitialNav={activePortfolio !== 'All'}
         />
 
-        {/* 4. Transaction Ledger */}
         <TransactionLedger 
           transactions={activePortfolio === 'All' ? cloudData.transactions : cloudData.transactions.filter(t => t.portfolio === activePortfolio)} 
           onDelete={(id) => updateCloud({ transactions: cloudData.transactions.filter(t => t.id !== id) })}
           onEdit={(tx) => { setEditingTx(tx); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
         />
 
-        {/* 5. Market Price Manager */}
         <MarketPriceManager prices={cloudData.market_prices || {}} onChange={(p) => updateCloud({ market_prices: p })} />
 
-        {/* 6. Performance Analytics */}
         {activePortfolio !== 'All' && (
             <PerformanceChart 
                 history={cloudData.nav_history || []} 

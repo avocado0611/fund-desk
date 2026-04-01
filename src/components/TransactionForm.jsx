@@ -23,6 +23,8 @@ const TransactionForm = ({ onAdd, onUpdate, editingTx, onCancelEdit }) => {
     portfolio: 'Tự doanh'
   });
 
+  const isCashFlow = formData.type === 'DEPOSIT' || formData.type === 'WITHDRAW';
+
   useEffect(() => {
     if (editingTx) {
       setFormData({
@@ -62,7 +64,7 @@ const TransactionForm = ({ onAdd, onUpdate, editingTx, onCancelEdit }) => {
   const isDivStock = formData.type === 'DIV_STOCK';
 
   const autoFee = () => {
-    if (isDivStock) return 0;
+    if (isDivStock || isCashFlow) return 0;
     const qtyValue = parseFloat(formData.qty.toString().replace(/,/g, '')) || 0;
     const priceValue = parseFloat(formData.price.toString().replace(/,/g, '')) || 0;
     const rate = BROKERS[formData.broker] || 0.0015;
@@ -88,12 +90,13 @@ const TransactionForm = ({ onAdd, onUpdate, editingTx, onCancelEdit }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!formData.ticker || !formData.qty) return;
+    if (!isCashFlow && !formData.ticker) return;
+    if (!isCashFlow && !formData.qty) return;
     if (!isDivStock && !formData.price) return;
     
     const finalTx = {
       ...formData,
-      qty: parseFloat(formData.qty.toString().replace(/,/g, '')),
+      qty: isCashFlow ? 1 : parseFloat(formData.qty.toString().replace(/,/g, '')),
       price: isDivStock ? 0 : parseFloat(formData.price.toString().replace(/,/g, '')) * 1000, 
       fee: autoFee(),
       tax: autoTax(),
@@ -138,6 +141,8 @@ const TransactionForm = ({ onAdd, onUpdate, editingTx, onCancelEdit }) => {
                 <select name="type" value={formData.type} onChange={handleChange}>
                     <option value="BUY">BUY</option>
                     <option value="SELL">SELL</option>
+                    <option value="DEPOSIT">DEPOSIT</option>
+                    <option value="WITHDRAW">WITHDRAW</option>
                     <option value="DIV_CASH">DIV_CASH</option>
                     <option value="DIV_STOCK">DIV_STOCK</option>
                 </select>
@@ -154,21 +159,29 @@ const TransactionForm = ({ onAdd, onUpdate, editingTx, onCancelEdit }) => {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr auto', gap: '1rem', alignItems: 'end' }}>
             <div className="form-group">
                 <label>Ticker</label>
-                <input type="text" name="ticker" value={formData.ticker} onChange={handleChange} placeholder="e.g. VNM" required />
-            </div>
-            <div className="form-group">
-                <label>Quantity (Shares)</label>
                 <input 
-                    type="text" 
-                    name="qty" 
-                    value={formatInput(formData.qty)} 
-                    onChange={handleQtyChange} 
-                    placeholder="e.g. 1,000"
-                    required 
+                  type="text" 
+                  name="ticker" 
+                  value={formData.ticker} 
+                  onChange={handleChange} 
+                  placeholder={isCashFlow ? "Optional" : "e.g. VNM"} 
+                  required={!isCashFlow} 
                 />
             </div>
             <div className="form-group">
-                <label>{formData.type === 'DIV_CASH' ? 'Div (x1,000)' : 'Price (x1,000)'}</label>
+                <label>{isCashFlow ? 'Quantity (Fixed 1)' : 'Quantity (Shares)'}</label>
+                <input 
+                    type="text" 
+                    name="qty" 
+                    value={isCashFlow ? '1' : formatInput(formData.qty)} 
+                    onChange={handleQtyChange} 
+                    placeholder="e.g. 1,000"
+                    required={!isCashFlow}
+                    disabled={isCashFlow}
+                />
+            </div>
+            <div className="form-group">
+                <label>{isCashFlow ? 'Amount (x1,000)' : (formData.type === 'DIV_CASH' ? 'Div (x1,000)' : 'Price (x1,000)')}</label>
                 <input 
                     type="text" 
                     name="price" 
@@ -180,15 +193,23 @@ const TransactionForm = ({ onAdd, onUpdate, editingTx, onCancelEdit }) => {
             </div>
             <div className="form-group">
                 <label>Fee ({((BROKERS[formData.broker] || 0) * 100).toFixed(2)}%)</label>
-                <div className="mono" style={{ padding: '0.5rem', background: '#f9f9f9', border: '1px solid #ddd', borderRadius: '4px', minHeight: '36px' }}>
-                    {formatNum(autoFee())}
-                </div>
+                <input 
+                  type="text" 
+                  className="mono" 
+                  value={formatNum(autoFee())} 
+                  disabled 
+                  style={{ background: '#f5f5f5', border: '1px solid #ddd' }}
+                />
             </div>
             <div className="form-group">
                 <label>Tax (0.1%)</label>
-                <div className="mono" style={{ padding: '0.5rem', background: '#f9f9f9', border: '1px solid #ddd', borderRadius: '4px', minHeight: '36px' }}>
-                    {formatNum(autoTax())}
-                </div>
+                <input 
+                  type="text" 
+                  className="mono" 
+                  value={formatNum(autoTax())} 
+                  disabled 
+                  style={{ background: '#f5f5f5', border: '1px solid #ddd' }}
+                />
             </div>
             <div className="form-group">
                 <button type="submit" className="btn-primary" style={{ minWidth: '100px', padding: '0.6rem' }}>

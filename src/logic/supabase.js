@@ -38,16 +38,20 @@ export async function syncToCloud(id, updates) {
 
 /**
  * Tạo mới một quỹ (nếu mã code chưa tồn tại)
+ * Mặc định Initial NAV = 10 tỷ mỗi quỹ
  */
 export async function createPortfolio(accessCode) {
+  const initialCash = 10000000000;
   const { data, error } = await supabase
     .from('portfolios')
     .insert([
       { 
         access_code: accessCode, 
         transactions: [], 
-        initial_navs: { 'Tự doanh': 10000000000, 'QTN': 10000000000, 'QNV': 10000000000 }, 
-        market_prices: {} 
+        initial_navs: { 'Tự doanh': initialCash, 'QTN': initialCash, 'QNV': initialCash }, 
+        total_units: { 'Tự doanh': initialCash/10000, 'QTN': initialCash/10000, 'QNV': initialCash/10000 },
+        market_prices: {},
+        nav_history: []
       }
     ])
     .select()
