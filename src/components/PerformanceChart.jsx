@@ -43,8 +43,8 @@ const PerformanceChart = ({ history, activePortfolio }) => {
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
             <XAxis 
                 dataKey="date" 
-                tickFormatter={(str) => format(parseISO(str), 'dd-MMM')}
-                fontSize={10}
+                tickFormatter={(str) => format(parseISO(str), 'dd-MMM-yyyy')}
+                fontSize={9}
             />
             <YAxis fontSize={10} unit="%" />
             <Tooltip 
@@ -81,9 +81,10 @@ const PerformanceChart = ({ history, activePortfolio }) => {
         <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>SNAPSHOT HISTORY</label>
         <div style={{ maxHeight: '300px', overflowY: 'auto', marginTop: '0.5rem', border: '1px solid #eee', borderRadius: '4px' }}>
             <table style={{ fontSize: '0.8rem', borderCollapse: 'separate', borderSpacing: 0 }}>
-                <thead style={{ position: 'sticky', top: 0, background: '#f5f5f5', zIndex: 1 }}>
+                <thead style={{ position: 'sticky', top: 0, background: '#f5f5f5', zIndex: 1, textAlign: 'left' }}>
                     <tr>
                         <th style={{ padding: '8px', borderBottom: '2px solid #ddd' }}>Date</th>
+                        <th style={{ padding: '8px', borderBottom: '2px solid #ddd' }}>Input Time</th>
                         <th className="mono" style={{ padding: '8px', borderBottom: '2px solid #ddd' }}>NAV (VND)</th>
                         <th className="mono" style={{ padding: '8px', borderBottom: '2px solid #ddd' }}>Unit Val</th>
                         <th className="mono" style={{ padding: '8px', borderBottom: '2px solid #ddd' }}>VNI Value</th>
@@ -92,13 +93,15 @@ const PerformanceChart = ({ history, activePortfolio }) => {
                 </thead>
                 <tbody>
                     {chartData.slice().reverse().map((point, idx) => {
-                        // Find original history point for absolute VNI value
+                        // Find original history point for absolute VNI value and Input Time
                         const originalPoint = filteredHistory.find(h => h.date === point.date);
                         const vniVal = originalPoint ? originalPoint.vnindex : 0;
+                        const inputTime = point.date ? format(parseISO(point.date), 'HH:mm dd/MM') : '-';
 
                         return (
                           <tr key={idx}>
                               <td style={{ padding: '8px', borderBottom: '1px solid #eee' }}>{format(parseISO(point.date), 'dd-MMM-yyyy')}</td>
+                              <td style={{ padding: '8px', borderBottom: '1px solid #eee', fontSize: '0.75rem', color: '#666' }}>{inputTime}</td>
                               <td className="mono" style={{ padding: '8px', borderBottom: '1px solid #eee' }}>{new Intl.NumberFormat('en-US').format(Math.round(point.nav))}</td>
                               <td className="mono" style={{ padding: '8px', borderBottom: '1px solid #eee' }}>{new Intl.NumberFormat('en-US', { minimumFractionDigits: 2 }).format(point.unitValue)}</td>
                               <td className="mono" style={{ padding: '8px', borderBottom: '1px solid #eee' }}>{vniVal ? new Intl.NumberFormat('en-US').format(vniVal) : '0.00'}</td>
