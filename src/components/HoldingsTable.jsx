@@ -16,6 +16,19 @@ const HoldingsTable = ({ holdings }) => {
     ? holdingsList.filter(h => h.qty > 0)
     : holdingsList.filter(h => h.qty <= 0);
 
+  // Totals Calculation
+  const totals = filteredHoldings.reduce((acc, h) => {
+    const pnl = h.qty > 0 ? (h.marketValue - h.totalCost) : h.realizedPnL;
+    acc.qty += h.qty;
+    acc.marketValue += h.marketValue;
+    acc.pnl += pnl;
+    acc.weight += h.weight;
+    acc.totalCost += h.totalCost;
+    return acc;
+  }, { qty: 0, marketValue: 0, pnl: 0, weight: 0, totalCost: 0 });
+
+  const totalPnlPercent = totals.totalCost > 0 ? (totals.pnl / totals.totalCost) * 100 : 0;
+
   return (
     <div className="card">
       <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -54,7 +67,6 @@ const HoldingsTable = ({ holdings }) => {
             const pnl = h.marketValue - h.totalCost;
             const pnlPercent = h.totalCost > 0 ? (pnl / h.totalCost) * 100 : 0;
             
-            // For closed positions, use realizedPnL instead
             const displayPnL = h.qty > 0 ? pnl : h.realizedPnL;
             const displayPnLPercent = h.qty > 0 ? pnlPercent : 0;
 
@@ -83,6 +95,24 @@ const HoldingsTable = ({ holdings }) => {
             </tr>
           )}
         </tbody>
+        {filteredHoldings.length > 0 && (
+          <tfoot>
+            <tr style={{ borderTop: '2px solid #ccc', background: '#f9f9f9', fontWeight: 'bold' }}>
+              <td>TOTAL</td>
+              <td className="mono">{formatNum(totals.qty)}</td>
+              <td>-</td>
+              <td>-</td>
+              <td className="mono">{formatNum(totals.marketValue)}</td>
+              <td className={`mono ${totals.pnl >= 0 ? 'positive' : 'negative'}`}>
+                {formatNum(totals.pnl)}
+              </td>
+              <td className={`mono ${totals.pnl >= 0 ? 'positive' : 'negative'}`}>
+                {formatPercent(totalPnlPercent)}
+              </td>
+              <td className="mono">{formatPercent(totals.weight)}</td>
+            </tr>
+          </tfoot>
+        )}
       </table>
     </div>
   );

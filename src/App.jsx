@@ -28,6 +28,7 @@ function App() {
 
   const handleLogout = () => {
     if (window.confirm('Bạn có muốn đăng xuất và đổi mã truy cập?')) {
+        localStorage.removeItem('sgi_access_code');
         setCloudData(null);
         setActivePortfolio('All');
     }

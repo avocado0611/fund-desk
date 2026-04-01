@@ -91,7 +91,7 @@ const NAVDashboard = ({ data, onRefresh, initialNav, onInitialNavChange, showIni
 
         {/* PIE CHART */}
         <div style={{ height: '350px', width: '100%' }}>
-            <span style={{ textAlign: 'center', display: 'block', fontSize: '0.75rem', color: '#999', textTransform: 'lowercase', marginBottom: '1rem' }}>asset allocation</span>
+            <span style={{ textAlign: 'center', display: 'block', fontSize: '0.75rem', color: '#999', textTransform: 'capitalize', marginBottom: '1rem' }}>Asset Allocation</span>
             <ResponsiveContainer>
                 <PieChart>
                     <Pie

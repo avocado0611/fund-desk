@@ -79,29 +79,35 @@ const PerformanceChart = ({ history, activePortfolio }) => {
 
       <div style={{ marginTop: '1.5rem' }}>
         <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>SNAPSHOT HISTORY</label>
-        <div style={{ maxHeight: '200px', overflowY: 'auto', marginTop: '0.5rem' }}>
-            <table style={{ fontSize: '0.8rem' }}>
-                <thead>
+        <div style={{ maxHeight: '300px', overflowY: 'auto', marginTop: '0.5rem', border: '1px solid #eee', borderRadius: '4px' }}>
+            <table style={{ fontSize: '0.8rem', borderCollapse: 'separate', borderSpacing: 0 }}>
+                <thead style={{ position: 'sticky', top: 0, background: '#f5f5f5', zIndex: 1 }}>
                     <tr>
-                        <th>Date</th>
-                        <th className="mono">NAV (VND)</th>
-                        <th className="mono">Unit Val</th>
-                        <th className="mono">VNI</th>
-                        <th className="mono">Performance (%)</th>
+                        <th style={{ padding: '8px', borderBottom: '2px solid #ddd' }}>Date</th>
+                        <th className="mono" style={{ padding: '8px', borderBottom: '2px solid #ddd' }}>NAV (VND)</th>
+                        <th className="mono" style={{ padding: '8px', borderBottom: '2px solid #ddd' }}>Unit Val</th>
+                        <th className="mono" style={{ padding: '8px', borderBottom: '2px solid #ddd' }}>VNI Value</th>
+                        <th className="mono" style={{ padding: '8px', borderBottom: '2px solid #ddd' }}>Performance (%)</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {chartData.slice().reverse().map((point, idx) => (
-                        <tr key={idx}>
-                            <td>{format(parseISO(point.date), 'dd-MMM-yyyy')}</td>
-                            <td className="mono">{new Intl.NumberFormat('en-US').format(Math.round(point.nav))}</td>
-                            <td className="mono">{new Intl.NumberFormat('en-US', { minimumFractionDigits: 2 }).format(point.unitValue)}</td>
-                            <td className="mono">{point.index ? formatNum(point.index) : '0.00'} %</td>
-                            <td className={`mono ${point.fund >= 0 ? 'positive' : 'negative'}`}>
-                                {formatNum(point.fund)} %
-                            </td>
-                        </tr>
-                    ))}
+                    {chartData.slice().reverse().map((point, idx) => {
+                        // Find original history point for absolute VNI value
+                        const originalPoint = filteredHistory.find(h => h.date === point.date);
+                        const vniVal = originalPoint ? originalPoint.vnindex : 0;
+
+                        return (
+                          <tr key={idx}>
+                              <td style={{ padding: '8px', borderBottom: '1px solid #eee' }}>{format(parseISO(point.date), 'dd-MMM-yyyy')}</td>
+                              <td className="mono" style={{ padding: '8px', borderBottom: '1px solid #eee' }}>{new Intl.NumberFormat('en-US').format(Math.round(point.nav))}</td>
+                              <td className="mono" style={{ padding: '8px', borderBottom: '1px solid #eee' }}>{new Intl.NumberFormat('en-US', { minimumFractionDigits: 2 }).format(point.unitValue)}</td>
+                              <td className="mono" style={{ padding: '8px', borderBottom: '1px solid #eee' }}>{vniVal ? new Intl.NumberFormat('en-US').format(vniVal) : '0.00'}</td>
+                              <td className={`mono ${point.fund >= 0 ? 'positive' : 'negative'}`} style={{ padding: '8px', borderBottom: '1px solid #eee' }}>
+                                  {formatNum(point.fund)} %
+                              </td>
+                          </tr>
+                        );
+                    })}
                 </tbody>
             </table>
         </div>

@@ -6,6 +6,25 @@ const AccessGuard = ({ onAccess }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  React.useEffect(() => {
+    const savedCode = localStorage.getItem('sgi_access_code');
+    if (savedCode) {
+      autoLogin(savedCode);
+    }
+  }, []);
+
+  const autoLogin = async (savedCode) => {
+    setLoading(true);
+    try {
+      const data = await getPortfolioByCode(savedCode);
+      if (data) onAccess(data);
+    } catch (err) {
+      console.error("Auto-login failed:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleEnter = async (e) => {
     e.preventDefault();
     if (!code) return;
@@ -15,11 +34,15 @@ const AccessGuard = ({ onAccess }) => {
     try {
       const data = await getPortfolioByCode(code);
       if (data) {
+          localStorage.setItem('sgi_access_code', code);
           onAccess(data);
       } else {
           if (window.confirm('Mã truy cập mới? Hệ thống sẽ tạo một quỹ mới cho mã này.')) {
               const newData = await createPortfolio(code);
-              if (newData) onAccess(newData);
+              if (newData) {
+                localStorage.setItem('sgi_access_code', code);
+                onAccess(newData);
+              }
           }
       }
     } catch (err) {
