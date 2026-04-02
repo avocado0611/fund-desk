@@ -5,7 +5,7 @@ const NAVDashboard = ({ data, onRefresh, initialNav, onInitialNavChange, showIni
   if (!data) return null;
 
   const formatNum = (val) => new Intl.NumberFormat('en-US').format(Math.round(val));
-  const formatPercent = (val) => new Intl.NumberFormat('en-US', { minimumFractionDigits: 2 }).format(val) + '%';
+  const formatPercent = (val) => new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val) + '%';
 
   const assetData = [
     { name: 'Equity', value: data.equityValue || 0, color: '#1D4477' },
