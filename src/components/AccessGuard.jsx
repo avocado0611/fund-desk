@@ -61,12 +61,7 @@ const AccessGuard = ({ onAccess }) => {
       backgroundColor: '#F5F5F5' 
     }}>
       <div className="card" style={{ width: '400px', textAlign: 'center', padding: '3rem', borderTop: '4px solid var(--color-primary)' }}>
-        <img 
-          src="/sgi-logo.png" 
-          alt="SGI Capital Logo" 
-          style={{ maxWidth: '280px', marginBottom: '1.5rem' }}
-        />
-        <h1 style={{ color: 'var(--color-primary)', marginBottom: '0.5rem', fontSize: '1.2rem', fontWeight: 'bold', letterSpacing: '2px' }}>FUND-DESK</h1>
+        <h1 style={{ color: 'var(--color-primary)', marginBottom: '0.5rem', fontSize: '2.5rem', fontWeight: 'bold', letterSpacing: '4px' }}>FUND-DESK</h1>
         <p style={{ color: '#666', marginBottom: '2.5rem', fontSize: '0.85rem', letterSpacing: '1px' }}>ACCOUNTING ACCESS CONTROL</p>
         
         <form onSubmit={handleEnter}>
@@ -100,7 +95,7 @@ const AccessGuard = ({ onAccess }) => {
         {error && <p style={{ color: 'red', marginTop: '1.5rem', fontSize: '0.8rem', background: '#FFEBEE', padding: '0.5rem', borderRadius: '4px' }}>{error}</p>}
         
         <div style={{ marginTop: '2rem', fontSize: '0.7rem', color: '#AAA' }}>
-          &copy; 2024 SGI CAPITAL. All rights reserved.
+          &copy; 2024 FUND-DESK. All rights reserved.
         </div>
       </div>
     </div>
