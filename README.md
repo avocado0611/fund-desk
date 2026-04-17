@@ -48,4 +48,4 @@ Fund-Desk is a professional-grade portfolio accounting and performance tracking 
 Fund-Desk focuses on a high-density, professional aesthetic that mimics institutional terminal software while remaining accessible and responsive. It prioritizes data integrity and calculation transparency for audit purposes.
 
 ---
-© 2024 FUND-DESK. All rights reserved.
+© 2026 FUND-DESK. All rights reserved.
