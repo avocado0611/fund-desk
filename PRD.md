@@ -68,6 +68,7 @@ Chi tiết từng giao dịch và biến động của danh mục.
 ## 5. Logic nghiệp vụ chuẩn
 
 ### 5.1 Đơn giá bình quân (ĐGBQ)
+- Phương pháp: **Bình quân gia quyền di động (Moving Average)**.
 - Được tính toán lại hoàn toàn từ dữ liệu giao dịch (**KHÔNG** lưu vào DB).
 - Đảm bảo tính nhất quán khi có thay đổi trong quá khứ.
 
@@ -76,18 +77,59 @@ Chi tiết từng giao dịch và biến động của danh mục.
 - **Open**: Đang nắm giữ (Số lượng > 0).
 - **Closed**: Đã bán hết (Số lượng = 0).
 
-**Settlement Status**:
-- **Pending**: Giao dịch chưa thanh toán (Ví dụ: T+2).
-- **Settled**: Giao dịch đã thanh toán xong.
+### 5.2 Chu kỳ thanh toán (Settlement Cycle)
+Hệ thống tuân thủ quy tắc thanh toán **T+2** của thị trường chứng khoán Việt Nam:
 
-### 5.3 Xử lý Cổ tức
-- **Cổ tức cổ phiếu (DIV_STOCK)**:
-  - Không tạo dòng tiền (Cash = 0).
-  - Tăng số lượng nắm giữ.
-  - Không thay đổi tổng giá vốn (Total Cost), dẫn đến ĐGBQ giảm xuống.
-- **Cổ tức tiền (DIV_CASH)**:
-  - Tăng dòng tiền (Cash).
-  - Không ảnh hưởng đến ĐGBQ.
+- **Quy tắc đếm ngày**:
+  - T là ngày giao dịch (Trade Date).
+  - Chỉ tính các ngày làm việc (Thứ 2 đến Thứ 6).
+  - Loại trừ Thứ 7, Chủ nhật và các ngày nghỉ lễ theo quy định của Nhà nước.
+
+- **Đối với lệnh MUA (BUY)**:
+  - Ngày T: Tiền bị trừ ngay lập tức, cổ phiếu ở trạng thái **Pending (Chờ về)**.
+  - Chiều ngày T+2: Cổ phiếu chính thức về tài khoản và chuyển sang trạng thái **Available (Khả dụng)** để có thể bán.
+
+- **Đối với lệnh BÁN (SELL)**:
+  - Ngày T: Cổ phiếu bị trừ ngay lập tức, tiền ở trạng thái **Cash Pending (Tiền chờ về)**.
+  - Chiều ngày T+2: Tiền chính thức về tài khoản và chuyển sang trạng thái **Cash Available (Tiền mặt)** để có thể rút hoặc mua mã mới.
+
+- **Trạng thái giao dịch (Settlement Status)**:
+  - **Pending**: Giao dịch trong thời gian chờ thanh toán (T, T+1, sáng T+2).
+  - **Settled**: Giao dịch đã hoàn tất thanh toán (sau chiều T+2).
+
+### 5.3 Xử lý Sự kiện quyền (Corporate Actions)
+Toàn bộ các sự kiện quyền đều dựa trên **Ngày Giao dịch không hưởng quyền (Ex-Date)** để tính toán số lượng/giá điều chỉnh.
+
+- **Cổ tức tiền mặt (DIV_CASH)**:
+  - **Tác động**: Tăng dòng tiền (`Cash`).
+  - **ĐGBQ**: Điều chỉnh giảm tương ứng với số tiền cổ tức nhận được (để khớp với việc giá thị trường bị điều chỉnh giảm vào ngày Ex-Date).
+  - **Công thức**: `ĐGBQ_mới = ĐGBQ_cũ - (Tỷ_lệ_cổ_tức * 10.000)`.
+  - **Ghi nhận**: Tại ngày thanh toán (Settlement Date), tiền sẽ vào tài khoản.
+
+- **Cổ tức cổ phiếu (DIV_STOCK) & Cổ phiếu thưởng (BONUS_STOCK)**:
+  - **Tác động**: Tăng số lượng nắm giữ (`Qty`). `Cash = 0`.
+  - **ĐGBQ**: Giảm xuống theo tỷ lệ.
+  - **Công thức**: `ĐGBQ_mới = Total_Cost / (Qty_cũ + Qty_thêm)`.
+  - **Trạng thái**: Số lượng tăng ngay tại Ex-Date nhưng ở trạng thái "Chờ về" (Pending Qty) cho đến khi chính thức giao dịch.
+
+- **Quyền mua ưu đãi (RIGHT_ISSUE)**:
+  - **Tác động**: Cổ đông có quyền mua thêm cổ phiếu với giá ưu đãi.
+  - **Dòng tiền**: Giảm `Cash` khi thực hiện quyền (Exercise).
+  - **ĐGBQ**: Thay đổi dựa trên số tiền nộp thêm.
+  - **Công thức**: `ĐGBQ_mới = (Total_Cost + Qty_mua * Giá_mua) / (Qty_cũ + Qty_mua)`.
+  - **Ghi nhận**: Số lượng tăng ngay tại Ex-Date nhưng ở trạng thái "Chờ về" (Pending Qty) cho đến khi chính thức giao dịch.
+
+- **Tách/Gộp cổ phiếu (STOCK_SPLIT / REVERSE_SPLIT)**:
+  - **Tác động**: Thay đổi số lượng (`Qty`) theo tỷ lệ, `Total_Cost` không đổi.
+  - **ĐGBQ**: Thay đổi tỷ lệ nghịch với số lượng.
+  - **Công thức**: `Qty_mới = Qty_cũ * Tỷ_lệ`; `ĐGBQ_mới = ĐGBQ_cũ / Tỷ_lệ`.
+  - **Trạng thái**: Cổ phiếu thường được giao dịch lại rất nhanh (thường là T hoặc T+1 sau ngày điều chỉnh).
+
+### 5.4 Thuế và Phí
+- **Thuế bán (Tax)**: Thường là 0.1% trên giá trị giao dịch bán.
+- **Thuế cổ tức (Dividend Tax)**: 5% đối với cổ tức tiền mặt (DIV_CASH) và có thể phát sinh khi bán cổ phiếu nhận từ cổ tức (tùy quy định từng thời kỳ).
+- **Phí giao dịch (Fee)**: Phí trả cho công ty chứng khoán, tùy mỗi công ty sẽ có mức phí khác nhau (ví dụ: 0.1% - 0.2%).
+- **Xử lý**: Phí và Thuế mua được cộng vào giá vốn. Thuế và Phí bán được trừ vào số tiền thực nhận.
 
 ## 6. Sổ cái danh mục (Trang 4 - Chi tiết)
 
@@ -108,9 +150,12 @@ Các cột thông tin:
 
 **Công thức**:
 - `Cost Value = Avg Price * Qty`
-- `Market Value = Market Price * Qty`
+- `Market Value = Market Price * (Qty_Available + Qty_Pending)`
 - `Unrealized P&L = Market Value - Cost Value`
 - `Weight = Market Value / NAV`
+
+**Lưu ý về Cổ phiếu chờ về (Pending Qty)**:
+- Ngay tại ngày Ex-Date, hệ thống phải ghi nhận `Qty_Pending` để đảm bảo NAV không bị sụt giảm ảo (do giá thị trường đã điều chỉnh giảm ngay tại ngày này).
 
 ### 6.3 NAV Box (Enhanced View)
 Hiển thị tổng quát tài sản:
