@@ -72,10 +72,19 @@ const TransactionForm = ({ onAdd, onUpdate, editingTx, onCancelEdit }) => {
   };
 
   const autoTax = () => {
+    const qtyValue = parseFloat(formData.qty.toString().replace(/,/g, '')) || 0;
+    const priceValue = parseFloat(formData.price.toString().replace(/,/g, '')) || 0;
+
     if (formData.type === 'SELL') {
-      const qtyValue = parseFloat(formData.qty.toString().replace(/,/g, '')) || 0;
-      const priceValue = parseFloat(formData.price.toString().replace(/,/g, '')) || 0;
       return Math.round(qtyValue * priceValue * 1000 * 0.001); 
+    }
+    if (formData.type === 'DIV_CASH') {
+      // Thuế cổ tức 5% trên tổng tiền mặt nhận được
+      return Math.round(qtyValue * priceValue * 1000 * 0.05);
+    }
+    if (formData.type === 'DIV_STOCK' || formData.type === 'BONUS_STOCK') {
+      // Thuế 5% tính trên mệnh giá 10,000 VND per share
+      return Math.round(qtyValue * 10000 * 0.05);
     }
     return 0; 
   };
@@ -145,6 +154,10 @@ const TransactionForm = ({ onAdd, onUpdate, editingTx, onCancelEdit }) => {
                     <option value="WITHDRAW">WITHDRAW</option>
                     <option value="DIV_CASH">DIV_CASH</option>
                     <option value="DIV_STOCK">DIV_STOCK</option>
+                    <option value="BONUS_STOCK">BONUS_STOCK</option>
+                    <option value="RIGHT_ISSUE">RIGHT_ISSUE</option>
+                    <option value="STOCK_SPLIT">STOCK_SPLIT</option>
+                    <option value="REVERSE_SPLIT">REVERSE_SPLIT</option>
                 </select>
             </div>
             <div className="form-group">
@@ -202,7 +215,7 @@ const TransactionForm = ({ onAdd, onUpdate, editingTx, onCancelEdit }) => {
                 />
             </div>
             <div className="form-group">
-                <label>Tax (0.1%)</label>
+                <label>Tax {(formData.type === 'DIV_CASH' || formData.type === 'DIV_STOCK' || formData.type === 'BONUS_STOCK') ? '(5%)' : '(0.1%)'}</label>
                 <input 
                   type="text" 
                   className="mono" 

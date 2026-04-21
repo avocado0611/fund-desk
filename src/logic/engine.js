@@ -61,12 +61,18 @@ export function derivePortfolioState(transactions, marketPrices, initialNavMap =
         break;
 
       case 'BUY':
+      case 'RIGHT_ISSUE':
         const buyValue = tx.qty * tx.price;
         const totalBuyCost = buyValue + (tx.fee || 0);
         h.avgPrice = (h.totalCost + totalBuyCost) / (h.qty + tx.qty);
         h.qty += tx.qty;
         h.totalCost += totalBuyCost;
         p.netCash -= (totalBuyCost + (tx.tax || 0));
+        if (tx.type === 'BUY') {
+          // RIGHT_ISSUE is usually considered part of portfolio growth, 
+          // but if user wants it treated as capital injection:
+          // p.totalInvested += totalBuyCost; // Optional based on preference
+        }
         break;
 
       case 'SELL':
@@ -94,15 +100,33 @@ export function derivePortfolioState(transactions, marketPrices, initialNavMap =
         const eligibilityDate = subDays(txDate, 1);
         const qtyAtT = getQtyAtDate(sortedTx, tx.portfolio, ticker, eligibilityDate);
         const totalCashDiv = qtyAtT * tx.price;
-        const netCashDiv = totalCashDiv * (1 - DIVIDEND_TAX_RATE);
+        // Use tax from transaction if provided, else fall back to calculation
+        const currentTax = tx.tax !== undefined ? tx.tax : (totalCashDiv * DIVIDEND_TAX_RATE);
+        const netCashDiv = totalCashDiv - currentTax;
+        
         p.netCash += netCashDiv;
+        // Adjust cost basis: ĐGBQ_mới = ĐGBQ_cũ - div_per_share
         h.totalCost -= (qtyAtT * tx.price);
         if (h.qty > 0) h.avgPrice = h.totalCost / h.qty;
         break;
 
       case 'DIV_STOCK':
+      case 'BONUS_STOCK':
         h.qty += tx.qty;
         h.dividendShares += tx.qty;
+        if (h.qty > 0) h.avgPrice = h.totalCost / h.qty;
+        p.netCash -= (tx.tax || 0);
+        break;
+
+      case 'STOCK_SPLIT':
+        // Qty increases, Total Cost stays same
+        h.qty += tx.qty; 
+        if (h.qty > 0) h.avgPrice = h.totalCost / h.qty;
+        break;
+
+      case 'REVERSE_SPLIT':
+        // Qty decreases, Total Cost stays same
+        h.qty -= tx.qty;
         if (h.qty > 0) h.avgPrice = h.totalCost / h.qty;
         break;
     }
