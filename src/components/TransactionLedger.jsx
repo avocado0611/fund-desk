@@ -7,7 +7,11 @@ const TransactionLedger = ({ transactions, onDelete, onEdit }) => {
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
 
   const formatNum = (val) => new Intl.NumberFormat('en-US').format(Math.round(val));
-  const formatPrice = (val) => new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val / 1000);
+  const formatPrice = (val) => new Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(Math.round(val));
+  const formatType = (type) => {
+    if (!type) return '';
+    return type.toLowerCase().split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+  };
 
   const now = new Date();
   
@@ -102,12 +106,13 @@ const TransactionLedger = ({ transactions, onDelete, onEdit }) => {
         <table>
             <thead>
             <tr>
-                <th>Date</th>
+                <th>Ex-date</th>
+                <th>Settlement</th>
                 <th>Input Time</th>
                 <th>Type</th>
                 <th>Ticker</th>
-                <th className="mono">Qty</th>
-                <th className="mono">Price (x1,000đ)</th>
+                <th className="mono">Qty / Ratio</th>
+                <th className="mono">Price / Div</th>
                 <th className="mono">Fee/Tax</th>
                 <th className="mono">Cash Impact</th>
                 <th style={{ textAlign: 'center' }}>Actions</th>
@@ -115,27 +120,38 @@ const TransactionLedger = ({ transactions, onDelete, onEdit }) => {
             </thead>
             <tbody>
             {sortedTx.map((tx, idx) => {
-                const cashImpact = tx.type === 'BUY' ? -(tx.qty * (tx.price / 1) + (tx.fee || 0)) : (tx.qty * (tx.price / 1) - (tx.fee || 0) - (tx.tax || 0));
-                
+                const displayDate = tx.tradeDate ? format(parseISO(tx.tradeDate), 'dd-MMM') : '';
+                const displaySettlement = tx.settlementDate ? format(parseISO(tx.settlementDate), 'dd-MMM') : '-';
+                const inputTime = tx.createdAt ? format(parseISO(tx.createdAt), 'HH:mm dd/MM') : '-';
+
+                let cashImpact = tx.type === 'BUY' ? -(tx.qty * tx.price + (tx.fee || 0)) : (tx.qty * tx.price - (tx.fee || 0) - (tx.tax || 0));
+                if (tx.type === 'DIV_CASH') cashImpact = 'Auto (95%)';
+                if (tx.type === 'DIV_STOCK' || tx.type === 'BONUS_STOCK') cashImpact = 'Auto (Tax 5%)';
+                if (tx.type === 'RIGHT_ISSUE') cashImpact = 'Auto (Pa)';
+
                 const typeColor = tx.type === 'BUY' ? 'var(--color-green)' : (tx.type === 'SELL' ? 'var(--color-red)' : 'var(--color-cyan)');
                 const typeBg = tx.type === 'BUY' ? '#E8F5E9' : (tx.type === 'SELL' ? '#FFEBEE' : '#E0F7FA');
 
-                const displayDate = tx.tradeDate ? format(parseISO(tx.tradeDate), 'dd-MMM-yyyy') : '';
-                const inputTime = tx.createdAt ? format(parseISO(tx.createdAt), 'HH:mm dd/MM') : '-';
+                const isCorpAction = ['DIV_CASH', 'DIV_STOCK', 'BONUS_STOCK', 'RIGHT_ISSUE', 'STOCK_SPLIT', 'REVERSE_SPLIT'].includes(tx.type);
 
                 return (
                 <tr key={tx.id || idx}>
                     <td>{displayDate}</td>
+                    <td style={{ fontSize: '0.85rem' }}>{displaySettlement}</td>
                     <td style={{ fontSize: '0.75rem', color: '#666' }}>{inputTime}</td>
                     <td>
-                      <span className="badge" style={{ background: typeBg, color: typeColor }}>{tx.type}</span>
+                      <span className="badge" style={{ background: typeBg, color: typeColor }}>{formatType(tx.type)}</span>
                     </td>
                     <td><strong>{tx.ticker}</strong></td>
-                    <td className="mono">{formatNum(tx.qty)}</td>
-                    <td className="mono">{formatPrice(tx.price)}</td>
+                    <td className="mono">
+                        {isCorpAction ? `${(tx.ratio * 100).toFixed(0)}%` : formatNum(tx.qty)}
+                    </td>
+                    <td className="mono">
+                        {tx.type === 'DIV_STOCK' || tx.type === 'BONUS_STOCK' ? '-' : formatPrice(tx.price)}
+                    </td>
                     <td className="mono">{formatNum((tx.fee || 0) + (tx.tax || 0))}</td>
-                    <td className={`mono ${cashImpact >= 0 ? 'positive' : 'negative'}`}>
-                        {formatNum(cashImpact)}
+                    <td className={`mono ${typeof cashImpact === 'string' ? '' : (cashImpact >= 0 ? 'positive' : 'negative')}`}>
+                        {typeof cashImpact === 'string' ? cashImpact : formatNum(cashImpact)}
                     </td>
                     <td style={{ textAlign: 'center' }}>
                         <button onClick={() => onEdit(tx)} style={{ border: 'none', background: 'none', cursor: 'pointer', marginRight: '8px', color: 'var(--color-primary)' }}>✎</button>
@@ -146,7 +162,7 @@ const TransactionLedger = ({ transactions, onDelete, onEdit }) => {
             })}
             {sortedTx.length === 0 && (
                 <tr>
-                <td colSpan="9" style={{textAlign: 'center', padding: '2rem', color: '#999'}}>
+                <td colSpan="10" style={{textAlign: 'center', padding: '2rem', color: '#999'}}>
                     No transactions found matches your filters.
                 </td>
                 </tr>

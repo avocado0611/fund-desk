@@ -12,6 +12,8 @@ const BROKERS = {
   'OTHER': 0.0015
 };
 
+const CORPORATE_ACTIONS = ['DIV_CASH', 'DIV_STOCK', 'BONUS_STOCK', 'RIGHT_ISSUE', 'STOCK_SPLIT', 'REVERSE_SPLIT'];
+
 const TransactionForm = ({ onAdd, onUpdate, editingTx, onCancelEdit }) => {
   const [formData, setFormData] = useState({
     tradeDate: new Date().toISOString().split('T')[0],
@@ -19,25 +21,33 @@ const TransactionForm = ({ onAdd, onUpdate, editingTx, onCancelEdit }) => {
     ticker: '',
     qty: '',
     price: '',
+    total: '',
+    settlementDate: '',
     broker: 'SSI',
     portfolio: 'Tự doanh'
   });
 
   const isCashFlow = formData.type === 'DEPOSIT' || formData.type === 'WITHDRAW';
+  const isCorpAction = CORPORATE_ACTIONS.includes(formData.type);
+  const isStockDiv = formData.type === 'DIV_STOCK' || formData.type === 'BONUS_STOCK';
+  const isRightIssue = formData.type === 'RIGHT_ISSUE';
 
   useEffect(() => {
     if (editingTx) {
       setFormData({
         ...editingTx,
         qty: editingTx.qty.toString(),
-        price: (editingTx.price / 1000).toString(),
+        price: editingTx.price.toString(),
+        total: (editingTx.qty * editingTx.price).toString(),
       });
     } else {
         setFormData(prev => ({
             ...prev,
             ticker: '',
             qty: '',
-            price: ''
+            price: '',
+            total: '',
+            settlementDate: ''
         }));
     }
   }, [editingTx]);
@@ -50,14 +60,40 @@ const TransactionForm = ({ onAdd, onUpdate, editingTx, onCancelEdit }) => {
   const handlePriceChange = (e) => {
     const rawValue = e.target.value.replace(/,/g, '');
     if (!isNaN(rawValue) || rawValue === '' || rawValue === '.') {
-      setFormData(prev => ({ ...prev, price: rawValue }));
+      const price = rawValue;
+      const qty = parseFloat(formData.qty.toString().replace(/,/g, '')) || 0;
+      const total = (price && qty) ? Math.round(parseFloat(price) * qty).toString() : formData.total;
+      setFormData(prev => ({ ...prev, price, total }));
+    }
+  };
+
+  const handleTotalChange = (e) => {
+    const rawValue = e.target.value.replace(/,/g, '');
+    if (!isNaN(rawValue) || rawValue === '' || rawValue === '.') {
+      const total = rawValue;
+      const qty = parseFloat(formData.qty.toString().replace(/,/g, '')) || 0;
+      const price = (total && qty && qty !== 0) ? Math.round(parseFloat(total) / qty).toString() : formData.price;
+      setFormData(prev => ({ ...prev, total, price }));
     }
   };
 
   const handleQtyChange = (e) => {
     const rawValue = e.target.value.replace(/,/g, '');
     if (!isNaN(rawValue) || rawValue === '') {
-      setFormData(prev => ({ ...prev, qty: rawValue }));
+      const qty = rawValue;
+      const priceVal = parseFloat(formData.price.toString().replace(/,/g, '')) || 0;
+      const totalVal = parseFloat(formData.total.toString().replace(/,/g, '')) || 0;
+      
+      let newTotal = formData.total;
+      let newPrice = formData.price;
+
+      if (qty && priceVal) {
+        newTotal = Math.round(parseFloat(qty) * priceVal).toString();
+      } else if (qty && totalVal) {
+        newPrice = Math.round(totalVal / parseFloat(qty)).toString();
+      }
+
+      setFormData(prev => ({ ...prev, qty, total: newTotal, price: newPrice }));
     }
   };
 
@@ -68,7 +104,7 @@ const TransactionForm = ({ onAdd, onUpdate, editingTx, onCancelEdit }) => {
     const qtyValue = parseFloat(formData.qty.toString().replace(/,/g, '')) || 0;
     const priceValue = parseFloat(formData.price.toString().replace(/,/g, '')) || 0;
     const rate = BROKERS[formData.broker] || 0.0015;
-    return Math.round(qtyValue * priceValue * rate * 1000); 
+    return Math.round(qtyValue * priceValue * rate); 
   };
 
   const autoTax = () => {
@@ -76,16 +112,12 @@ const TransactionForm = ({ onAdd, onUpdate, editingTx, onCancelEdit }) => {
     const priceValue = parseFloat(formData.price.toString().replace(/,/g, '')) || 0;
 
     if (formData.type === 'SELL') {
-      return Math.round(qtyValue * priceValue * 1000 * 0.001); 
+      return Math.round(qtyValue * priceValue * 0.001); 
     }
     if (formData.type === 'DIV_CASH') {
-      // Thuế cổ tức 5% trên tổng tiền mặt nhận được
-      return Math.round(qtyValue * priceValue * 1000 * 0.05);
+      return Math.round(qtyValue * priceValue * 0.05);
     }
-    if (formData.type === 'DIV_STOCK' || formData.type === 'BONUS_STOCK') {
-      // Thuế 5% tính trên mệnh giá 10,000 VND per share
-      return Math.round(qtyValue * 10000 * 0.05);
-    }
+
     return 0; 
   };
 
@@ -105,13 +137,22 @@ const TransactionForm = ({ onAdd, onUpdate, editingTx, onCancelEdit }) => {
     
     const finalTx = {
       ...formData,
-      qty: isCashFlow ? 1 : parseFloat(formData.qty.toString().replace(/,/g, '')),
-      price: isDivStock ? 0 : parseFloat(formData.price.toString().replace(/,/g, '')) * 1000, 
+      qty: (isCashFlow || isCorpAction) ? 0 : parseFloat(formData.qty.toString().replace(/,/g, '')),
+      price: isStockDiv ? 0 : parseFloat(formData.price.toString().replace(/,/g, '')),
+      ratio: isCorpAction ? (parseFloat(formData.price.toString().replace(/,/g, '')) / 100) : undefined,
       fee: autoFee(),
       tax: autoTax(),
       id: editingTx ? editingTx.id : Date.now(),
       createdAt: (editingTx && editingTx.createdAt) ? editingTx.createdAt : new Date().toISOString()
     };
+
+    if (formData.type === 'DIV_CASH') {
+      finalTx.price = 10000 * (parseFloat(formData.price) / 100);
+      finalTx.qty = 0;
+    } else if (isRightIssue) {
+        finalTx.price = parseFloat(formData.qty.toString().replace(/,/g, '')); // Pa
+        finalTx.qty = 0;
+    }
 
     if (editingTx) {
       onUpdate(finalTx);
@@ -124,6 +165,7 @@ const TransactionForm = ({ onAdd, onUpdate, editingTx, onCancelEdit }) => {
       ticker: '',
       qty: '',
       price: '',
+      total: ''
     }));
   };
 
@@ -134,9 +176,15 @@ const TransactionForm = ({ onAdd, onUpdate, editingTx, onCancelEdit }) => {
         {/* ROW 1: Meta settings */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1rem' }}>
             <div className="form-group">
-                <label>Date</label>
+                <label>{isCorpAction ? 'Ex-date' : 'Date'}</label>
                 <input type="date" name="tradeDate" value={formData.tradeDate} onChange={handleChange} required />
             </div>
+            {isCorpAction && (
+                <div className="form-group">
+                    <label>Settlement Date</label>
+                    <input type="date" name="settlementDate" value={formData.settlementDate} onChange={handleChange} required />
+                </div>
+            )}
             <div className="form-group">
                 <label>Portfolio</label>
                 <select name="portfolio" value={formData.portfolio} onChange={handleChange}>
@@ -148,16 +196,16 @@ const TransactionForm = ({ onAdd, onUpdate, editingTx, onCancelEdit }) => {
             <div className="form-group">
                 <label>Type</label>
                 <select name="type" value={formData.type} onChange={handleChange}>
-                    <option value="BUY">BUY</option>
-                    <option value="SELL">SELL</option>
-                    <option value="DEPOSIT">DEPOSIT</option>
-                    <option value="WITHDRAW">WITHDRAW</option>
-                    <option value="DIV_CASH">DIV_CASH</option>
-                    <option value="DIV_STOCK">DIV_STOCK</option>
-                    <option value="BONUS_STOCK">BONUS_STOCK</option>
-                    <option value="RIGHT_ISSUE">RIGHT_ISSUE</option>
-                    <option value="STOCK_SPLIT">STOCK_SPLIT</option>
-                    <option value="REVERSE_SPLIT">REVERSE_SPLIT</option>
+                    <option value="BUY">Buy</option>
+                    <option value="SELL">Sell</option>
+                    <option value="DEPOSIT">Deposit</option>
+                    <option value="WITHDRAW">Withdraw</option>
+                    <option value="DIV_CASH">Div Cash</option>
+                    <option value="DIV_STOCK">Div Stock</option>
+                    <option value="BONUS_STOCK">Bonus Stock</option>
+                    <option value="RIGHT_ISSUE">Right Issue</option>
+                    <option value="STOCK_SPLIT">Stock Split</option>
+                    <option value="REVERSE_SPLIT">Reverse Split</option>
                 </select>
             </div>
             <div className="form-group">
@@ -182,26 +230,44 @@ const TransactionForm = ({ onAdd, onUpdate, editingTx, onCancelEdit }) => {
                 />
             </div>
             <div className="form-group">
-                <label>{isCashFlow ? 'Quantity (Fixed 1)' : 'Quantity (Shares)'}</label>
+                <label>
+                    {isRightIssue ? 'Issue Price (Pa)' : 
+                    (isCorpAction ? 'Auto (Ratio-based)' : 
+                    (isCashFlow ? 'Quantity (Fixed 1)' : 'Quantity (Shares)'))}
+                </label>
                 <input 
                     type="text" 
                     name="qty" 
-                    value={isCashFlow ? '1' : formatInput(formData.qty)} 
+                    value={isCashFlow ? '1' : (isStockDiv || formData.type === 'DIV_CASH' ? 'Auto' : formatInput(formData.qty))} 
                     onChange={handleQtyChange} 
-                    placeholder="e.g. 1,000"
-                    required={!isCashFlow}
-                    disabled={isCashFlow}
+                    placeholder={isRightIssue ? "e.g. 10,000" : "e.g. 1,000"}
+                    required={!isCashFlow && !isStockDiv && formData.type !== 'DIV_CASH'}
+                    disabled={isCashFlow || isStockDiv || formData.type === 'DIV_CASH'}
                 />
             </div>
             <div className="form-group">
-                <label>{isCashFlow ? 'Amount (x1,000)' : (formData.type === 'DIV_CASH' ? 'Div (x1,000)' : 'Price (x1,000)')}</label>
+                <label>
+                    {formData.type === 'DIV_CASH' ? 'Div (%)' : 
+                    (isCorpAction ? 'Ratio (%)' : 
+                    (isCashFlow ? 'Amount (VNĐ)' : 'Price (VNĐ)'))}
+                </label>
                 <input 
                     type="text" 
                     name="price" 
                     value={isDivStock ? '0' : formatInput(formData.price)} 
                     onChange={handlePriceChange} 
                     required={!isDivStock}
-                    disabled={isDivStock}
+                    disabled={isDivStock && !isCorpAction}
+                />
+            </div>
+            <div className="form-group">
+                <label>Total Value (VNĐ)</label>
+                <input 
+                    type="text" 
+                    name="total" 
+                    value={isDivStock ? '0' : formatInput(formData.total)} 
+                    onChange={handleTotalChange} 
+                    placeholder="Auto or Manual"
                 />
             </div>
             <div className="form-group">

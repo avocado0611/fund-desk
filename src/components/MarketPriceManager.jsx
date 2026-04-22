@@ -23,8 +23,8 @@ const MarketPriceManager = ({ prices, onChange }) => {
   const handlePriceChange = (ticker, val) => {
     const rawValue = val.replace(/,/g, '');
     if (!isNaN(rawValue) || rawValue === '' || rawValue === '.') {
-      // Store in VND (multiplied by 1000)
-      const vndValue = rawValue === '' ? 0 : parseFloat(rawValue) * 1000;
+      // Store in VNĐ directly (rounded)
+      const vndValue = rawValue === '' ? 0 : Math.round(parseFloat(rawValue));
       onChange({ ...prices, [ticker]: vndValue });
     }
   };
@@ -32,9 +32,8 @@ const MarketPriceManager = ({ prices, onChange }) => {
   const formatInput = (val) => {
     if (val === 0) return '0';
     if (!val) return '';
-    // Display value is VND / 1000
-    const displayVal = val / 1000;
-    const parts = displayVal.toString().split('.');
+    const roundedVal = Math.round(val);
+    const parts = roundedVal.toString().split('.');
     parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     return parts.join('.');
   };
@@ -59,7 +58,7 @@ const MarketPriceManager = ({ prices, onChange }) => {
           <thead>
             <tr>
               <th style={{ textAlign: 'left' }}>Ticker</th>
-              <th style={{ textAlign: 'right' }}>Price (x1,000đ)</th>
+              <th style={{ textAlign: 'right' }}>Price (VNĐ)</th>
               <th style={{ textAlign: 'center' }}>X</th>
             </tr>
           </thead>
