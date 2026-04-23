@@ -48,12 +48,35 @@ Hệ thống tuân thủ quy tắc thanh toán **T+2** của thị trường ch�
   - **Settled**: Giao dịch đã hoàn tất thanh toán (sau chiều T+2).
 
 ### 2.4 Xử lý Sự kiện quyền (Corporate Actions)
-Toàn bộ các sự kiện quyền đều dựa trên **Ngày Giao dịch không hưởng quyền (Ex-Date)** để tính toán số lượng/giá điều chỉnh.
+Toàn bộ các sự kiện quyền đều dựa trên **Ngày Giao dịch không hưởng quyền (Ex-Date)** để tính toán số lượng/giá điều chỉnh. 
+Nhà đầu tư mua cổ phiếu vào ngày giao dịch không hưởng quyền sẽ không được nhận cổ tức, trong khi người bán vẫn được hưởng trọn vẹn quyền lợi đã xác lập trước đó.
+Để đảm bảo sự công bằng giữa người mua trước và người mua kể từ ngày giao dịch không hưởng quyền, giá tham chiếu của cổ phiếu tại ngày này sẽ tự động điều chỉnh giảm tương ứng với giá trị cổ tức hoặc tỷ lệ quyền được chia. 
+
+**Ngày thanh toán (Settlement Date)** là ngày mà cổ đông thực sự nhận được quyền lợi đã được công bố, bao gồm:
+- **Cổ tức bằng tiền**: Tiền sẽ được chuyển vào tài khoản giao dịch chứng khoán
+- **Cổ tức bằng cổ phiếu**: Cổ phiếu thưởng sẽ được ghi nhận vào tài khoản
+- **Quyền mua**: Cổ phiếu phát hành thêm sẽ về tài khoản sau khi thanh toán tiền mua
+Ngày thanh toán thường diễn ra sau ngày đăng ký cuối cùng từ 10-30 ngày tùy theo quy định của từng công ty.
+
+**Lưu ý**: 
+- Cách tính giá cổ phiếu điều chỉnh vào ngày Ex-date:
+
+P' = (P + Pa x a - C)/(1 + a + b)
+
+Trong đó:
+- P: Giá đóng cửa của phiên giao dịch trư ớc ngày giao dịch không hưởng quyền
+- P': Giá tham chiếu điều chỉnh vào ngày giao dịch không hưởng quyền
+- Pa: Giá phát hành cổ phiếu thêm (nếu có)
+- a: Tỷ lệ phát hành cổ phiếu thêm (quyền mua) (Right Issue)
+- b: Tỷ lệ chia cổ tức bằng cổ phiếu hoặc cổ phiếu thưởng (Div stock/ Bonus stock)
+- C: Số tiền cổ tức bằng tiền mặt (10.000* Div) trên mỗi cổ phiếu
+ 
+Áp dụng công thức tính trên tương tự đối với ĐGBQ (AVG PRICE)
 
 - **Cổ tức tiền mặt (DIV_CASH)**:
   - **Tác động**: Tăng dòng tiền (`Cash`).
   - **ĐGBQ**: Điều chỉnh giảm tương ứng với số tiền cổ tức nhận được (để khớp với việc giá thị trường bị điều chỉnh giảm vào ngày Ex-Date).
-  - **Công thức**: `ĐGBQ_mới = ĐGBQ_cũ - (Tỷ_lệ_cổ_tức * 10.000)`.
+  - **Công thức**: `ĐGBQ_mới = ĐGBQ_cũ - (tỷ lệ cổ tức * 10.000)`
   - **Ghi nhận**: Tại ngày thanh toán (Settlement Date), tiền sẽ vào tài khoản.
 
 - **Cổ tức cổ phiếu (DIV_STOCK) & Cổ phiếu thưởng (BONUS_STOCK)**:
@@ -77,6 +100,6 @@ Toàn bộ các sự kiện quyền đều dựa trên **Ngày Giao dịch khôn
 
 ### 2.5 Thuế và Phí
 - **Thuế bán (Tax)**: Thường là 0.1% trên giá trị giao dịch bán.
-- **Thuế cổ tức (Dividend Tax)**: 5% đối với cổ tức tiền mặt (DIV_CASH) và cổ tức cổ phiếu (DIV_STOCK)
+- **Thuế cổ tức (Dividend Tax)**: 5% đối với cổ tức tiền mặt (DIV_CASH) và 5% * mệnh giá 10.000 VND * số lượng cổ tức cổ phiếu (DIV_STOCK) khi bán ra số cổ tức cổ phiếu đó
 - **Phí giao dịch (Fee)**: Phí trả cho công ty chứng khoán, tùy mỗi công ty sẽ có mức phí khác nhau (ví dụ: 0.1% - 0.2%).
 - **Xử lý**: Phí và Thuế mua được cộng vào giá vốn. Thuế và Phí bán được trừ vào số tiền thực nhận.
